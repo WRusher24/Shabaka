@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Application user. A user is either a worker (عامل), an employer (صاحب عمل),
+/// or the platform administrator. Every new account starts as PENDING and must
+/// be approved by an admin before it can use gated features.
+model User {
+  id        String   @id @default(cuid())
+  role      String   @default("WORKER") // WORKER | EMPLOYER | ADMIN
+  status    String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  name      String
+  email     String?  @unique
+  phone     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  worker       WorkerProfile?
+  company      CompanyProfile?
+  jobs         Job[]
+  joinRequests JoinRequest[] @relation("JoinRequestWorker")
+  companyRequests JoinRequest[] @relation("JoinRequestCompany")
+  interests    Interest[]    @relation("InterestEmployer")
+  notifications Notification[]
+}
+
+/// Public worker profile shown in the worker directory.
+model WorkerProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  phone           String
+  town            String
+  trade           String
+  yearsExperience Int     @default(0)
+  availability    String  @default("AVAILABLE") // AVAILABLE | BUSY
+  bio             String?
+  contactPhone    String?
+  contactEmail    String?
+  whatsapp       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([trade])
+  @@index([town])
+  @@index([availability])
+}
+
+/// Public company profile shown in the company directory.
+model CompanyProfile {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName   String
+  town           String
+  industry       String
+  industryCustom String?
+  openingsCount  Int     @default(0)
+  workingHours   String?
+  /// DIRECT = share phone/email publicly to approved workers.
+  /// JOIN_REQUEST = hide contact info; workers apply via "طلب انضمام".
+  contactMode    String  @default("DIRECT") // DIRECT | JOIN_REQUEST
+  contactPhone   String?
+  contactEmail   String?
+  about          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  jobs Job[]
+
+  @@index([industry])
+  @@index([town])
+}
+
+/// Job / shift posting. Starts as PENDING and is hidden from the public board
+/// until an admin approves it.
+model Job {
+  id          String   @id @default(cuid())
+  title       String
+  companyId   String
+  company     User     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyProfileId String?
+  companyProfile   CompanyProfile? @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
+  town        String
+  jobType     String   @default("FULL_TIME") // FULL_TIME | PART_TIME | SHIFT | GIG
+  /// Salary is optional. When salaryVisible is false the amount is stored for
+  /// admin reference but never rendered on the public board.
+  salaryAmount   String?
+  salaryVisible  Boolean @default(false)
+  hoursMode      String   @default("EXACT") // EXACT | FLEXIBLE | MULTIPLE
+  workingHours   String?
+  workingDays    String?
+  description    String
+  requirements   String?
+  status         String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  joinRequests JoinRequest[]
+
+  @@index([status])
+  @@index([town])
+  @@index([jobType])
+}
+
+/// A worker's "طلب انضمام" (join request) to a company that chose the
+/// join-request contact model.
+model JoinRequest {
+  id        String   @id @default(cuid())
+  companyId String
+  company   User     @relation("JoinRequestCompany", fields: [companyId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    User     @relation("JoinRequestWorker", fields: [workerId], references: [id], onDelete: Cascade)
+  jobId    String?
+  job       Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  message   String?
+  status    String   @default("PENDING") // PENDING | ACCEPTED | DECLINED
+  createdAt DateTime @default(now())
+
+  @@index([companyId, status])
+  @@index([workerId])
+}
+
+/// An employer expressing interest in a worker. Creates a notification for
+/// the worker ("[اسم الشركة] مهتم بخدماتك").
+model Interest {
+  id         String   @id @default(cuid())
+  employerId String
+  employer   User     @relation("InterestEmployer", fields: [employerId], references: [id], onDelete: Cascade)
+  workerId   String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([workerId])
+}
+
+/// In-app notification for a user.
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+/// "تواصل معنا" feedback submission from any visitor.
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  contact   String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

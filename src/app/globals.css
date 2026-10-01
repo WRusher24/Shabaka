@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-cairo: "Cairo", "Segoe UI", system-ui, sans-serif;
+}
+
+html {
+  direction: rtl;
+}
+
+body {
+  font-family: var(--font-cairo);
+  @apply bg-sand-50 text-gray-900 antialiased;
+}
+
+/* Ensure select dropdowns and option lists are always readable:
+   dark text on light background, no hover-dependent visibility. */
+select,
+option {
+  @apply bg-white text-gray-900;
+}
+
+select {
+  @apply border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500;
+}
+
+/* Custom scrollbar for RTL */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-sand-100;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-sand-400 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-sand-500;
+}
